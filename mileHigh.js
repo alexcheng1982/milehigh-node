@@ -40,7 +40,9 @@ Have fun ;)
 var CONNECTION_URL = "http://challenge.hacktivate.me:3000",
     request = require('request'),
     async = require('async'),
-    spawn = require('child_process').spawn;
+    spawn = require('child_process').spawn,
+    _ = require('lodash'),
+    planner = require('./planner');
 
 var mileHigh = function(token) {
     async.forever(
@@ -51,11 +53,12 @@ var mileHigh = function(token) {
                 // Parse the response body
                 var getData = JSON.parse(body);
 
-                // You might want to put something in here to send to the server ;)
-                var postData = {};
+                var waypoints = planner.update(getData);
 
-                // For now, we'll just log the response
-                console.log(body);
+                var postData = {
+                    token: token,
+                    directions: waypoints
+                };
 
                 // Sending our data to the server
                 request.post(CONNECTION_URL +"/post", {json: postData});
@@ -67,7 +70,7 @@ var mileHigh = function(token) {
             });
 
             // By all means, tweak this timeout. No guarantees on how fast your requests will be though :)
-            setTimeout(callback, 50);
+            setTimeout(callback, 200);
         },
 
         // An error happened somewhere in async.forever
