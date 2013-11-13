@@ -14,6 +14,7 @@ var radius = {};
 var circlePoints = {};
 var inLandingZone = {};
 var planeToLand;
+var topAreaHeight;
 
 
 function calculatePosition(startPos, rotation, speed, time) {
