@@ -70,7 +70,7 @@ var mileHigh = function(token) {
             });
 
             // By all means, tweak this timeout. No guarantees on how fast your requests will be though :)
-            setTimeout(callback, 200);
+            setTimeout(callback, 2000);
         },
 
         // An error happened somewhere in async.forever

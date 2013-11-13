@@ -90,16 +90,17 @@ function getNextCirclePoint(plane, runway) {
 }
 
 function findLandingPosition(plane, runway) {
+	var delta = topAreaHeight / 2;
 	if (plane.rotation < 0) {
 		return {
-			x: runway.x + 200,
-			y: runway.y - 200
+			x: runway.x + delta,
+			y: runway.y - delta
 		};
 	}
 	else {
 		return {
-			x: runway.x - 200,
-			y: runway.y - 200
+			x: runway.x - delta,
+			y: runway.y - delta
 		};
 	}
 }
@@ -131,18 +132,24 @@ function getPlaneWaypoint(plane, runway) {
 	}
 }
 
-function findCollisions(planes) {
+function findCollisions(planes, obstacles) {
 	var rects = _.map(planes, function(plane) {
-		var nextPos = calculatePosition(plane.position, plane.rotation, plane.turn_speed, 1);
+		var nextPos = calculatePosition(plane.position, plane.rotation, plane.speed, 2);
 		var rect = new g.Rect({
 			x: nextPos.x - plane.collision_radius,
 			y: nextPos.y - plane.collision_radius
 		}, {
-			width: 2 * plane.collision_radius,
-			height: 2 * plane.collision_radius
+			width: 3 * plane.collision_radius,
+			height: 3 * plane.collision_radius
 		});
+		//rect = g.Rect.fromPoints(new g.Point(plane.position.x, plane.position.y), new g.Point(nextPos.x, nextPos.y));
 		rect._plane = plane;
 		return rect;
+	});
+	var obstacleRects = _.map(obstacles, function(obstacle) {
+		var b1 = obstacle.boundary.min,
+			b2 = obstacle.boundary.max;
+		return new g.Rect.fromPoints(new g.Point(b1.x, b1.y), new g.Point(b2.x, b2.y));
 	});
 	var results = [];
 	for (var i = 0, n = rects.length; i < n; i++) {
@@ -151,13 +158,26 @@ function findCollisions(planes) {
 				results.push([rects[i]._plane, rects[j]._plane]);
 			}
 		}
+		for (var k = 0, m = obstacleRects.length; k < m; k++) {
+			if (rects[i].intersectsRect(obstacleRects[k])) {
+				results.push([rects[i]]._plane);
+			}
+		}
 	}
 	return _.uniq(results);
 }
 
 function getPositionToAvoidCollision(plane) {
-	var pos = calculatePosition(plane.position, plane.rotation - 90, plane.turn_speed, 1);
+	var rotation = plane.rotation - 90;
+	if (rotation < -180) {
+		rotation = rotation + 360;
+	}
+	var pos = calculatePosition(plane.position, rotation, plane.turn_speed, 1);
 	return pos;
+}
+
+function getPlaneScore(plane) {
+	return plane.points + plane.fuel;
 }
 
 function findNextPlaneToLand(planes, runway) {
@@ -188,36 +208,44 @@ function isPlaneLanded(plane, runway) {
 	return distance < 5 && plane.rotation <= 87 && plane.rotation >= -87;
 }
 
+var landedCount = 0;
+
 exports.update = function(data) {
-	logger.info(data);
 	var planes = _.filter(data.objects, function(obj) {
 		return obj.type === 'plane';
 	});
+	var obstacles = _.filter(data.objects, function(obj) {
+		return obj.type === 'obstacle';
+	});
+	logger.info("obstacles:");
+	logger.info(obstacles);
 	var runway = data.runway;
+	topAreaHeight = runway.y - data.boundary.min.y;
 	var waypoints = [];
-	var collisions = findCollisions(planes);
+	var collisions = findCollisions(planes, obstacles);
 	logger.info("collision -> " + JSON.stringify(collisions));
 	planeToLand = findNextPlaneToLand(planes, runway);
 	logger.info("next plane to land -> " + JSON.stringify(planeToLand));
 	var turnPlanes = {};
 	_.forEach(collisions, function(collision) {
-		if (collision.length == 2) {
-			//var planeToTurn = collision[0].points < collision[1].points ? collision[0] : collision[1];
-			//turnPlanes[planeToTurn.id] = getPositionToAvoidCollision(planeToTurn);
-			if (!(planeToLand && collision[0].id == planeToLand.id)) {
-				turnPlanes[collision[0].id] = getPositionToAvoidCollision(collision[0]);
+		_.forEach(collision, function(obj) {
+			if (!(planeToLand && obj.id == planeToLand.id)) {
+				turnPlanes[obj.id] = getPositionToAvoidCollision(obj);
 			}
-			if (!(planeToLand && collision[1].id == planeToLand.id)) {
-				turnPlanes[collision[1].id] = getPositionToAvoidCollision(collision[1]);
-			}
-		}
+		});
 	});
 
 	logger.info("turn planes -> " + JSON.stringify(turnPlanes));
 	
 	_.forEach(planes, function(plane) {
 		var waypoint;
-		if (turnPlanes[plane.id]) {
+		if (plane.name != '777-300ER' && plane.name != 'F16') {
+			waypoint = {
+				x: 1500,
+				y: 1500
+			};
+		}
+		else if (turnPlanes[plane.id]) {
 			waypoint = turnPlanes[plane.id];
 		}
 		else if (planeToLand && planeToLand.id === plane.id) {
@@ -232,10 +260,12 @@ exports.update = function(data) {
 		});
 
 		if (isPlaneLanded(plane, runway)) {
-			logger.info("Plane landed %s", plane.id);
+			landedCount++;
+			logger.info("Plane landed %s, total %s", plane.id, landedCount);
 			planeToLand = null;
 		}
 	});
 	logger.info(waypoints);
+	logger.info("next plane to land after waypoints -> " + JSON.stringify(planeToLand));
 	return waypoints;
 };
