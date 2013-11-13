@@ -37,7 +37,7 @@ Have fun ;)
 
 */
 
-var CONNECTION_URL = "http://challenge.hacktivate.me:3000",
+var CONNECTION_URL = "http://challenge.hacktivate.me",
     request = require('request'),
     async = require('async'),
     spawn = require('child_process').spawn,
@@ -88,7 +88,7 @@ var initialiseMileHigh = function() {
     if(process.argv[2]) {
         
         //Mac OS Specific. Feel free to remove if not helpful for you :)
-        spawn('open', [CONNECTION_URL + "/view3d?token=" + process.argv[2]]);
+        spawn('open', [CONNECTION_URL + "/view?token=" + process.argv[2]]);
         mileHigh(process.argv[2]);
     
     // Otherwise, create a new 'practice' session
