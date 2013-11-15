@@ -34,12 +34,6 @@ function calculateDistance(x1, y1, x2, y2) {
 function isLandingPossible(plane, runway) {
 	var pos = plane.position;
 	if (pos.y <= runway.y) {
-		/*if (pos.x <= runway.x && plane.rotation <= 0) {
-			return true;
-		}
-		else if (pos.x > runway.x && plane.rotation > 0) {
-			return true;
-		}*/
 		return true;
 	}
 	return false;
@@ -54,40 +48,6 @@ function getCircleRadius(plane) {
 	return r;
 }
 
-function calculateCirclePoints(plane, runway) {
-	var r = getCircleRadius(plane), numOfPoints = 32, points = [], radianInc = 2 * Math.PI / numOfPoints;
-	for (var i = 0; i < numOfPoints; i++) {
-		points.push({
-			x: runway.x + r * Math.cos(i * radianInc),
-			y: runway.y + r * Math.sin(i * radianInc)
-		});
-	}
-	return points;
-}
-
-function getNextCirclePoint(plane, runway) {
-	logger.info("current position");
-	logger.info(plane.position);
-	var points = circlePoints[plane.id];
-	if (!points) {
-		points = calculateCirclePoints(plane, runway);
-		circlePoints[plane.id] = points;
-	}
-	var distance = Number.MAX_VALUE, pos = plane.position, index;
-	for (var i = 0, n = points.length; i < n; i++) {
-		var d = calculateDistance(pos.x, pos.y, points[i].x, points[i].y);
-		if (d < distance) {
-			distance = d;
-			index = i;
-		}
-	}
-	if (distance < 10) {
-		index = (index + 1) % points.length;
-	}
-	logger.info("new position");
-	logger.info(points[index]);
-	return points[index];
-}
 
 function findLandingPosition(plane, runway) {
 	var delta = topAreaHeight / 2;
@@ -217,8 +177,6 @@ exports.update = function(data) {
 	var obstacles = _.filter(data.objects, function(obj) {
 		return obj.type === 'obstacle';
 	});
-	logger.info("obstacles:");
-	logger.info(obstacles);
 	var runway = data.runway;
 	topAreaHeight = runway.y - data.boundary.min.y;
 	var waypoints = [];
@@ -239,13 +197,7 @@ exports.update = function(data) {
 	
 	_.forEach(planes, function(plane) {
 		var waypoint;
-		if (plane.name != '777-300ER' && plane.name != 'F16') {
-			waypoint = {
-				x: 1500,
-				y: 1500
-			};
-		}
-		else if (turnPlanes[plane.id]) {
+		if (turnPlanes[plane.id]) {
 			waypoint = turnPlanes[plane.id];
 		}
 		else if (planeToLand && planeToLand.id === plane.id) {
@@ -266,6 +218,5 @@ exports.update = function(data) {
 		}
 	});
 	logger.info(waypoints);
-	logger.info("next plane to land after waypoints -> " + JSON.stringify(planeToLand));
 	return waypoints;
 };
